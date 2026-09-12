@@ -46,20 +46,6 @@ import {
   weekOf,
 } from '@/lib/analysis';
 
-const colors = [
-  '#2dd4bf',
-  '#f6ba64',
-  '#9f8cff',
-  '#64b5f6',
-  '#f783ac',
-  '#c6de76',
-  '#ef976b',
-  '#76d2e3',
-  '#cb91df',
-  '#a7bacc',
-  '#f3d575',
-  '#92cf9b',
-];
 const money = (n: number) =>
   new Intl.NumberFormat('ja-JP', { maximumFractionDigits: 0 }).format(n);
 const yen = (n: number) => (n > 0 ? '+' : '') + money(n) + '円';
@@ -639,8 +625,26 @@ export default function Home() {
                             dataKey={s.code}
                             name={s.name}
                             stackId="symbols"
-                            fill={colors[symbols.indexOf(s) % colors.length]}
                             isAnimationActive={false}
+                            shape={(props: unknown) => {
+                              const { payload, ...rect } =
+                                props as RectangleProps & {
+                                  payload: Record<string, number>;
+                                };
+                              const value = payload[s.code] ?? 0;
+                              return (
+                                <Rectangle
+                                  {...rect}
+                                  fill={
+                                    value > 0
+                                      ? '#ff626b'
+                                      : value < 0
+                                        ? '#40b2ef'
+                                        : '#688091'
+                                  }
+                                />
+                              );
+                            }}
                           />
                         ))
                     )}
@@ -650,24 +654,19 @@ export default function Home() {
               {chartMode === 'stacked' && (
                 <>
                   <div className="symbol-legend">
-                    {symbols
-                      .filter((s) => symbol === 'all' || s.code === symbol)
-                      .map((s) => (
-                        <span key={s.code}>
-                          <i
-                            style={{
-                              background:
-                                colors[symbols.indexOf(s) % colors.length],
-                            }}
-                          />
-                          {s.name}
-                        </span>
-                      ))}
+                    <span>
+                      <i style={{ background: '#ff626b' }} />
+                      {t('利益', 'Profit')}
+                    </span>
+                    <span>
+                      <i style={{ background: '#40b2ef' }} />
+                      {t('損失', 'Loss')}
+                    </span>
                   </div>
                   <p className="chart-note">
                     {t(
-                      '各銘柄の日次純損益を、プラス・マイナスに分けて積み上げ表示。',
-                      'Each symbol’s daily net P&L is stacked separately above or below zero.',
+                      '各銘柄の日次純損益を積み上げ、利益は赤系、損失は青系で表示。',
+                      'Each symbol’s daily net P&L is stacked, with profits in red and losses in blue.',
                     )}
                   </p>
                 </>
