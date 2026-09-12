@@ -169,7 +169,8 @@ a {
   padding-bottom: 24px;
 }
 .filters label,
-.filter-field {
+.filter-field,
+.range-field {
   display: flex;
   flex-direction: column;
   gap: 7px;
@@ -187,8 +188,34 @@ a {
   font-size: 14px;
   min-width: 140px;
 }
-.filter-field {
+.filter-field,
+.range-field {
   min-width: 0;
+}
+.range-options {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 44px;
+  border: 1px solid #345165;
+  border-radius: 8px;
+  background: #0d2535;
+  padding: 3px;
+}
+.range-options button {
+  height: 34px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: #a5bccc;
+  padding: 0 9px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.range-options button:hover,
+.range-options button.active {
+  background: #245063;
+  color: #73e2d1;
 }
 .filter-select {
   max-width: 270px;
@@ -557,6 +584,17 @@ footer {
   .filters {
     flex-wrap: wrap;
   }
+  .range-field {
+    grid-column: 1/-1;
+  }
+  .range-options {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .range-options button {
+    flex: 1;
+    padding: 0 4px;
+  }
   .chart-grid {
     grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
   }
@@ -628,7 +666,8 @@ footer {
     display: none;
   }
   .filters label,
-  .filter-field {
+  .filter-field,
+  .range-field {
     width: 100%;
     min-width: 0;
   }
