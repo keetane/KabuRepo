@@ -97,3 +97,51 @@ void test(
     );
   },
 );
+const sbiPath = process.env.SBI_CSV_TEST_PATH;
+void test(
+  'provided SBI settlement-history CSV maps credit closes without inventing entry prices',
+  { skip: !sbiPath },
+  () => {
+    const bytes = readFileSync(sbiPath!);
+    const d = parseTrades(
+      decodeCSV(
+        bytes.buffer.slice(
+          bytes.byteOffset,
+          bytes.byteOffset + bytes.byteLength,
+        ),
+      ),
+    );
+    assert.equal(d.source, 'sbi');
+    assert.equal(d.sourceRows, 7364);
+    assert.equal(d.trades.length, 4121);
+    assert.equal(d.unavailableSettlements, 10);
+    assert.equal(d.hasEntryBasis, false);
+    const s = stats(d.trades);
+    assert.equal(s.net, -14681673);
+    assert.equal(s.wins, 2534);
+    assert.equal(s.losses, 1587);
+    assert.equal(s.draws, 0);
+    assert.equal(s.rate, null);
+    assert.equal(
+      stats(d.trades.filter((t) => t.side === 'long')).net,
+      -16231811,
+    );
+    assert.equal(
+      stats(d.trades.filter((t) => t.side === 'short')).net,
+      1550138,
+    );
+    assert.ok(
+      d.trades.every((trade) => trade.entry === 0 && trade.basis === 0),
+    );
+    for (const key of [
+      (t: Trade) => t.date,
+      (t: Trade) => t.code,
+      (t: Trade) => weekOf(t.date),
+      (t: Trade) => t.date.slice(0, 7),
+    ])
+      assert.equal(
+        groupTrades(d.trades, key).reduce((sum, g) => sum + g.net, 0),
+        s.net,
+      );
+  },
+);

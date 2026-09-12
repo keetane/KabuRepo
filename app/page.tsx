@@ -687,8 +687,16 @@ export default function Home() {
                       <strong>{percent(s.winRate)}</strong>
                     </div>
                     <div>
-                      <span>{t('利益率', 'Return on entry value')}</span>
-                      <strong className={tone(s.net)}>{percent(s.rate)}</strong>
+                      <span>
+                        {data?.hasEntryBasis
+                          ? t('利益率', 'Return on entry value')
+                          : t('利益率', 'Return unavailable')}
+                      </span>
+                      <strong
+                        className={data?.hasEntryBasis ? tone(s.net) : ''}
+                      >
+                        {data?.hasEntryBasis ? percent(s.rate) : '—'}
+                      </strong>
                     </div>
                   </div>
                   <div className="mini-stats">
@@ -836,7 +844,9 @@ export default function Home() {
                       t('銘柄', 'Symbol'),
                       t('方向', 'Side'),
                       t('数量', 'Quantity'),
-                      t('建単価', 'Entry'),
+                      data?.hasEntryBasis
+                        ? t('建単価', 'Entry')
+                        : t('建単価', 'Entry unavailable'),
                       t('決済単価', 'Exit'),
                       t('損益', 'Net P&L'),
                       t('利益率', 'Return'),
@@ -859,12 +869,16 @@ export default function Home() {
                           : t('ショート', 'Short')}
                       </TableCell>
                       <TableCell>{r.quantity}</TableCell>
-                      <TableCell>{r.entry.toLocaleString()}</TableCell>
+                      <TableCell>
+                        {data?.hasEntryBasis ? r.entry.toLocaleString() : '—'}
+                      </TableCell>
                       <TableCell>{r.exit.toLocaleString()}</TableCell>
                       <TableCell className={tone(r.net)}>
                         {yen(r.net)}
                       </TableCell>
-                      <TableCell>{percent(r.net / r.basis)}</TableCell>
+                      <TableCell>
+                        {data?.hasEntryBasis ? percent(r.net / r.basis) : '—'}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -877,10 +891,15 @@ export default function Home() {
             {t('集計方法・データについて', 'Calculation methodology')}
           </summary>
           <p>
-            {t(
-              '信用返済の各CSV明細を1件として集計。勝率は利益明細数 ÷ 全決済明細数（引き分けを含む）。同一注文の分割約定も個別に数えます。利益率は純損益合計 ÷ 決済対象の建約定金額合計で、口座資産や証拠金に対する収益率ではありません。',
-              'Each credit-close CSV row is one fill. Win rate includes flat fills in the denominator. Split fills count separately. Return is total net P&L divided by closed entry notional, not account equity or margin.',
-            )}
+            {data?.source === 'sbi'
+              ? t(
+                  'SBIの「信用返済売」をロング、「信用返済買」をショートとして、決済損益が記録された明細を1件ずつ集計します。SBIのCSVには建単価がないため、利益率と明細の建単価は表示しません。',
+                  'SBI credit-close sells are long and credit-close buys are short. Only rows with recorded realized P&L are counted. SBI CSVs do not contain entry prices, so return and entry price are unavailable.',
+                )
+              : t(
+                  '信用返済の各CSV明細を1件として集計。勝率は利益明細数 ÷ 全決済明細数（引き分けを含む）。同一注文の分割約定も個別に数えます。利益率は純損益合計 ÷ 決済対象の建約定金額合計で、口座資産や証拠金に対する収益率ではありません。',
+                  'Each credit-close CSV row is one fill. Win rate includes flat fills in the denominator. Split fills count separately. Return is total net P&L divided by closed entry notional, not account equity or margin.',
+                )}
           </p>
           <p>
             {t(
@@ -890,7 +909,7 @@ export default function Home() {
           </p>
           <p>
             {data &&
-              `${data.sourceRows} ${t('元明細', 'source rows')} / ${data.trades.length} ${t('決済明細', 'closed fills')} / ${data.zeroSettlements} ${t('件は建値決済・費用ゼロを確認して0円として集計', 'flat fills verified with zero costs')}`}
+              `${data.sourceRows} ${t('元明細', 'source rows')} / ${data.trades.length} ${t('決済明細', 'closed fills')}${data.source === 'sbi' ? ` / ${data.unavailableSettlements} ${t('件は決済損益未記録のため除外', 'fills excluded because P&L is unavailable')}` : ` / ${data.zeroSettlements} ${t('件は建値決済・費用ゼロを確認して0円として集計', 'flat fills verified with zero costs')}`}`}
           </p>
           <p>
             {t(
