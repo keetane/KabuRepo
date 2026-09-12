@@ -13,6 +13,15 @@ export type Trade = {
   costs: number;
   basis: number;
 };
+
+type ParsedTrades = {
+  trades: Trade[];
+  sourceRows: number;
+  zeroSettlements: number;
+  unavailableSettlements: number;
+  hasEntryBasis: boolean;
+  source: 'tradehistory' | 'sbi';
+};
 export function parseCSV(text: string): string[][] {
   const rows: string[][] = [];
   let row: string[] = [],
@@ -54,8 +63,7 @@ function date(v: string) {
     throw new Error('存在しない日付です');
   return s;
 }
-export function parseTrades(text: string) {
-  const rows = parseCSV(text.replace(/^\uFEFF/, ''));
+function parseTradeHistory(rows: string[][]): ParsedTrades {
   const headers = rows.shift() ?? [];
   const required = [
     '約定日',
@@ -146,7 +154,95 @@ export function parseTrades(text: string) {
     trades: trades.sort((a, b) => a.date.localeCompare(b.date) || a.id - b.id),
     sourceRows: rows.length,
     zeroSettlements,
+    unavailableSettlements: 0,
+    hasEntryBasis: true,
+    source: 'tradehistory',
   };
+}
+
+function parseSbi(rows: string[][], headerIndex: number): ParsedTrades {
+  const headers = rows[headerIndex];
+  const dataRows = rows
+    .slice(headerIndex + 1)
+    .filter((row) => row.length === headers.length && row[0]);
+  const required = [
+    '約定日',
+    '銘柄',
+    '銘柄コード',
+    '取引',
+    '約定数量',
+    '約定単価',
+    '受渡金額/決済損益',
+  ];
+  const missing = required.filter((header) => !headers.includes(header));
+  if (missing.length)
+    throw new Error(
+      'SBIの約定履歴CSVの列が不足しています: ' + missing.join('、'),
+    );
+  let unavailableSettlements = 0;
+  const trades: Trade[] = [];
+  dataRows.forEach((row, index) => {
+    const record = Object.fromEntries(
+      headers.map((header, column) => [header, row[column].trim()]),
+    );
+    const side =
+      record['取引'] === '信用返済売'
+        ? 'long'
+        : record['取引'] === '信用返済買'
+          ? 'short'
+          : null;
+    if (!side) return;
+    const quantity = number(record['約定数量']),
+      exit = number(record['約定単価']),
+      net = number(record['受渡金額/決済損益']);
+    if (!quantity || quantity < 0 || exit === null || exit < 0)
+      throw new Error(
+        `${headerIndex + index + 2}行目の数量・価格を確認してください。`,
+      );
+    if (net === null) {
+      unavailableSettlements++;
+      return;
+    }
+    trades.push({
+      id: headerIndex + index + 2,
+      date: date(record['約定日']),
+      entryDate: '',
+      code: record['銘柄コード'],
+      name: record['銘柄'],
+      side,
+      quantity,
+      entry: 0,
+      exit,
+      gross: 0,
+      net,
+      costs: 0,
+      basis: 0,
+    });
+  });
+  if (!trades.length)
+    throw new Error('SBI CSVに決済損益が記録された信用返済明細がありません。');
+  return {
+    trades: trades.sort((a, b) => a.date.localeCompare(b.date) || a.id - b.id),
+    sourceRows: dataRows.length,
+    zeroSettlements: 0,
+    unavailableSettlements,
+    hasEntryBasis: false,
+    source: 'sbi',
+  };
+}
+
+export function parseTrades(text: string) {
+  const rows = parseCSV(text.replace(/^\uFEFF/, ''));
+  const sbiHeaderIndex = rows.findIndex(
+    (row) =>
+      row.includes('約定日') &&
+      row.includes('銘柄コード') &&
+      row.includes('約定数量') &&
+      row.includes('受渡金額/決済損益'),
+  );
+  return sbiHeaderIndex >= 0
+    ? parseSbi(rows, sbiHeaderIndex)
+    : parseTradeHistory(rows);
 }
 export function decodeCSV(buffer: ArrayBuffer) {
   let text = new TextDecoder('utf-8').decode(buffer);
