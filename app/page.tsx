@@ -97,6 +97,7 @@ export default function Home() {
     [end, setEnd] = useState(''),
     [symbol, setSymbol] = useState('all'),
     [side, setSide] = useState('all'),
+    [symbolPnlSide, setSymbolPnlSide] = useState('all'),
     [chartMode, setChartMode] = useState('net'),
     [period, setPeriod] = useState('week'),
     [range, setRange] = useState('all'),
@@ -112,6 +113,7 @@ export default function Home() {
     setRange('all');
     setSymbol('all');
     setSide('all');
+    setSymbolPnlSide('all');
     setError('');
   };
   useEffect(() => {
@@ -138,6 +140,17 @@ export default function Home() {
       ) ?? [],
     [data, start, end, symbol, side],
   );
+  const symbolPnlRows = useMemo(
+    () =>
+      data?.trades.filter(
+        (x) =>
+          (!start || x.date >= start) &&
+          (!end || x.date <= end) &&
+          (symbol === 'all' || x.code === symbol) &&
+          (symbolPnlSide === 'all' || x.side === symbolPnlSide),
+      ) ?? [],
+    [data, start, end, symbol, symbolPnlSide],
+  );
   const summary = stats(rows),
     long = stats(rows.filter((x) => x.side === 'long')),
     short = stats(rows.filter((x) => x.side === 'short'));
@@ -157,7 +170,9 @@ export default function Home() {
         .reduce((n, x) => n + x.net, 0);
     return result;
   });
-  const ranked = groupTrades(rows, (x) => x.code).sort((a, b) => b.net - a.net);
+  const ranked = groupTrades(symbolPnlRows, (x) => x.code).sort(
+    (a, b) => b.net - a.net,
+  );
   const periods = groupTrades(rows, (x) =>
     period === 'week' ? weekOf(x.date) : x.date.slice(0, 7),
   ).reverse();
@@ -730,9 +745,27 @@ export default function Home() {
                     <span className="eyebrow">SYMBOL CONTRIBUTION</span>
                     <h2>{t('銘柄別期間損益', 'P&L by symbol')}</h2>
                   </div>
-                  <span>
-                    {ranked.length} {t('銘柄', 'symbols')}
-                  </span>
+                  <div className="rank-controls">
+                    <Tabs
+                      value={symbolPnlSide}
+                      onValueChange={(v) => setSymbolPnlSide(String(v))}
+                    >
+                      <TabsList className="segmented symbol-side-tabs">
+                        <TabsTrigger value="all">
+                          {t('両方', 'Both')}
+                        </TabsTrigger>
+                        <TabsTrigger value="long">
+                          {t('ロング', 'Long')}
+                        </TabsTrigger>
+                        <TabsTrigger value="short">
+                          {t('ショート', 'Short')}
+                        </TabsTrigger>
+                      </TabsList>
+                    </Tabs>
+                    <span>
+                      {ranked.length} {t('銘柄', 'symbols')}
+                    </span>
+                  </div>
                 </div>
                 <div className="ranking">
                   {ranked.map((g, i) => (
