@@ -46,6 +46,34 @@ import {
   weekOf,
 } from '@/lib/analysis';
 
+const gainColors = [
+  '#ff9aa2',
+  '#ff626b',
+  '#ed5261',
+  '#d83d4f',
+  '#ff8079',
+  '#cb3546',
+  '#f17485',
+  '#bd2b3e',
+  '#ff8c91',
+  '#ac2436',
+  '#e85a72',
+  '#a01d2f',
+];
+const lossColors = [
+  '#8ed9fb',
+  '#40b2ef',
+  '#258fd0',
+  '#1678bc',
+  '#62c4ef',
+  '#1d6fa9',
+  '#4ca5df',
+  '#0f649d',
+  '#75cef5',
+  '#2d82bd',
+  '#5bb8e7',
+  '#155682',
+];
 const money = (n: number) =>
   new Intl.NumberFormat('ja-JP', { maximumFractionDigits: 0 }).format(n);
 const yen = (n: number) => (n > 0 ? '+' : '') + money(n) + '円';
@@ -619,34 +647,38 @@ export default function Home() {
                     ) : (
                       symbols
                         .filter((s) => symbol === 'all' || s.code === symbol)
-                        .map((s) => (
-                          <Bar
-                            key={s.code}
-                            dataKey={s.code}
-                            name={s.name}
-                            stackId="symbols"
-                            isAnimationActive={false}
-                            shape={(props: unknown) => {
-                              const { payload, ...rect } =
-                                props as RectangleProps & {
-                                  payload: Record<string, number>;
-                                };
-                              const value = payload[s.code] ?? 0;
-                              return (
-                                <Rectangle
-                                  {...rect}
-                                  fill={
-                                    value > 0
-                                      ? '#ff626b'
-                                      : value < 0
-                                        ? '#40b2ef'
-                                        : '#688091'
-                                  }
-                                />
-                              );
-                            }}
-                          />
-                        ))
+                        .map((s) => {
+                          const colorIndex =
+                            symbols.indexOf(s) % gainColors.length;
+                          return (
+                            <Bar
+                              key={s.code}
+                              dataKey={s.code}
+                              name={s.name}
+                              stackId="symbols"
+                              isAnimationActive={false}
+                              shape={(props: unknown) => {
+                                const { payload, ...rect } =
+                                  props as RectangleProps & {
+                                    payload: Record<string, number>;
+                                  };
+                                const value = payload[s.code] ?? 0;
+                                return (
+                                  <Rectangle
+                                    {...rect}
+                                    fill={
+                                      value > 0
+                                        ? gainColors[colorIndex]
+                                        : value < 0
+                                          ? lossColors[colorIndex]
+                                          : '#688091'
+                                    }
+                                  />
+                                );
+                              }}
+                            />
+                          );
+                        })
                     )}
                   </BarChart>
                 </ResponsiveContainer>
@@ -654,19 +686,24 @@ export default function Home() {
               {chartMode === 'stacked' && (
                 <>
                   <div className="symbol-legend">
-                    <span>
-                      <i style={{ background: '#ff626b' }} />
-                      {t('利益', 'Profit')}
-                    </span>
-                    <span>
-                      <i style={{ background: '#40b2ef' }} />
-                      {t('損失', 'Loss')}
-                    </span>
+                    {symbols
+                      .filter((s) => symbol === 'all' || s.code === symbol)
+                      .map((s) => {
+                        const colorIndex =
+                          symbols.indexOf(s) % gainColors.length;
+                        return (
+                          <span key={s.code}>
+                            <i style={{ background: gainColors[colorIndex] }} />
+                            <i style={{ background: lossColors[colorIndex] }} />
+                            {s.code} {s.name}
+                          </span>
+                        );
+                      })}
                   </div>
                   <p className="chart-note">
                     {t(
-                      '各銘柄の日次純損益を積み上げ、利益は赤系、損失は青系で表示。',
-                      'Each symbol’s daily net P&L is stacked, with profits in red and losses in blue.',
+                      '銘柄ごとに濃淡ペアを割り当て、利益は赤系、損失は青系で積み上げ表示。',
+                      'Each symbol has a paired shade: red for profit and blue for loss.',
                     )}
                   </p>
                 </>
