@@ -331,6 +331,18 @@ a {
   font-size: 12px;
   color: #9fb6c7;
 }
+.rank-controls {
+  display: flex;
+  align-items: center;
+  justify-content: end;
+  gap: 12px;
+  min-width: 0;
+}
+.rank-controls > span {
+  font-size: 12px;
+  color: #9fb6c7;
+  white-space: nowrap;
+}
 .eyebrow {
   font-size: 12px;
   letter-spacing: 0.15em;
@@ -416,6 +428,9 @@ a {
 .segmented button[data-active] {
   background: #245063 !important;
   color: #73e2d1 !important;
+}
+.symbol-side-tabs {
+  min-width: 220px;
 }
 .symbol-legend {
   justify-content: start;
@@ -765,6 +780,17 @@ footer {
   .segmented button {
     font-size: 14px;
     padding: 4px 9px !important;
+  }
+  .rank-controls {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .symbol-side-tabs {
+    flex: 1;
+    min-width: 0;
+  }
+  .symbol-side-tabs button {
+    flex: 1;
   }
   .direction-grid,
   .bottom-grid {
