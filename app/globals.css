@@ -414,6 +414,12 @@ a {
 .daily-chart {
   height: 290px;
 }
+.daily-controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: end;
+  gap: 8px;
+}
 .segmented {
   height: 44px !important;
   padding: 3px !important;
@@ -780,6 +786,17 @@ footer {
   .segmented button {
     font-size: 14px;
     padding: 4px 9px !important;
+  }
+  .daily-controls {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr);
+    width: 100%;
+  }
+  .daily-controls .segmented {
+    width: 100%;
+  }
+  .daily-controls .segmented button {
+    flex: 1;
   }
   .rank-controls {
     width: 100%;

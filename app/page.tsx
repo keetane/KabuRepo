@@ -74,6 +74,21 @@ const lossColors = [
   '#5bb8e7',
   '#155682',
 ];
+const countColors = [
+  '#2dd4bf',
+  '#64b5f6',
+  '#9f8cff',
+  '#f6ba64',
+  '#76d2e3',
+  '#c6de76',
+  '#ef976b',
+  '#cb91df',
+  '#92cf9b',
+  '#f783ac',
+  '#a7bacc',
+  '#f3d575',
+];
+const dailyCountKey = (code: string) => `count:${code}`;
 const money = (n: number) =>
   new Intl.NumberFormat('ja-JP', { maximumFractionDigits: 0 }).format(n);
 const yen = (n: number) => (n > 0 ? '+' : '') + money(n) + '円';
@@ -113,6 +128,7 @@ export default function Home() {
     [side, setSide] = useState('all'),
     [symbolPnlSide, setSymbolPnlSide] = useState('all'),
     [chartMode, setChartMode] = useState('net'),
+    [dailyMetric, setDailyMetric] = useState('pnl'),
     [period, setPeriod] = useState('week'),
     [range, setRange] = useState('all'),
     [language, setLanguage] = useState('ja');
@@ -176,12 +192,14 @@ export default function Home() {
     const result: Record<string, string | number> = {
       date: g.key,
       net: g.net,
+      count: g.count,
       cumulative,
     };
-    for (const s of symbols)
-      result[s.code] = g.items
-        .filter((x) => x.code === s.code)
-        .reduce((n, x) => n + x.net, 0);
+    for (const s of symbols) {
+      const symbolRows = g.items.filter((x) => x.code === s.code);
+      result[s.code] = symbolRows.reduce((n, x) => n + x.net, 0);
+      result[dailyCountKey(s.code)] = symbolRows.length;
+    }
     return result;
   });
   const ranked = groupTrades(symbolPnlRows, (x) => x.code).sort(
@@ -244,6 +262,16 @@ export default function Home() {
         Math.abs(v) >= 10000 ? `${v / 10000}万` : money(v)
       }
       width={65}
+      tick={{ fill: '#a5bccc', fontSize: 12 }}
+      axisLine={false}
+      tickLine={false}
+    />
+  );
+  const countAxis = (
+    <YAxis
+      allowDecimals={false}
+      tickFormatter={(v) => money(Number(v))}
+      width={48}
       tick={{ fill: '#a5bccc', fontSize: 12 }}
       axisLine={false}
       tickLine={false}
@@ -584,19 +612,38 @@ export default function Home() {
               <div className="panel-heading">
                 <div>
                   <span className="eyebrow">DAILY BREAKDOWN</span>
-                  <h2>{t('日別損益', 'Daily P&L')}</h2>
+                  <h2>
+                    {dailyMetric === 'pnl'
+                      ? t('日別損益', 'Daily P&L')
+                      : t('日別取引回数', 'Daily trades')}
+                  </h2>
                 </div>
-                <Tabs
-                  value={chartMode}
-                  onValueChange={(v) => setChartMode(String(v))}
-                >
-                  <TabsList className="segmented">
-                    <TabsTrigger value="net">{t('合計', 'Total')}</TabsTrigger>
-                    <TabsTrigger value="stacked">
-                      {t('銘柄別積み上げ', 'By symbol')}
-                    </TabsTrigger>
-                  </TabsList>
-                </Tabs>
+                <div className="daily-controls">
+                  <Tabs
+                    value={dailyMetric}
+                    onValueChange={(v) => setDailyMetric(String(v))}
+                  >
+                    <TabsList className="segmented">
+                      <TabsTrigger value="pnl">{t('損益', 'P&L')}</TabsTrigger>
+                      <TabsTrigger value="count">
+                        {t('回数', 'Trades')}
+                      </TabsTrigger>
+                    </TabsList>
+                  </Tabs>
+                  <Tabs
+                    value={chartMode}
+                    onValueChange={(v) => setChartMode(String(v))}
+                  >
+                    <TabsList className="segmented">
+                      <TabsTrigger value="net">
+                        {t('合計', 'Total')}
+                      </TabsTrigger>
+                      <TabsTrigger value="stacked">
+                        {t('銘柄別', 'By symbol')}
+                      </TabsTrigger>
+                    </TabsList>
+                  </Tabs>
+                </div>
               </div>
               <div className="chart daily-chart">
                 <ResponsiveContainer
@@ -619,27 +666,44 @@ export default function Home() {
                       axisLine={false}
                       tickLine={false}
                     />
-                    {axis}
+                    {dailyMetric === 'pnl' ? axis : countAxis}
                     <Tooltip
                       contentStyle={tooltipStyle}
-                      formatter={(v, name) => [yen(Number(v)), name]}
+                      formatter={(v, name) => [
+                        dailyMetric === 'pnl'
+                          ? yen(Number(v))
+                          : `${money(Number(v))}${t('件', ' fills')}`,
+                        name,
+                      ]}
                       cursor={{ fill: '#ffffff09' }}
                     />
-                    <ReferenceLine y={0} stroke="#638092" />
+                    {dailyMetric === 'pnl' && (
+                      <ReferenceLine y={0} stroke="#638092" />
+                    )}
                     {chartMode === 'net' ? (
                       <Bar
-                        dataKey="net"
-                        name={t('日別損益', 'Daily P&L')}
+                        dataKey={dailyMetric === 'pnl' ? 'net' : 'count'}
+                        name={
+                          dailyMetric === 'pnl'
+                            ? t('日別損益', 'Daily P&L')
+                            : t('日別取引回数', 'Daily trades')
+                        }
                         isAnimationActive={false}
                         shape={(props: unknown) => {
                           const { payload, ...rect } =
                             props as RectangleProps & {
-                              payload: { net: number };
+                              payload: { net: number; count: number };
                             };
                           return (
                             <Rectangle
                               {...rect}
-                              fill={payload.net >= 0 ? '#ff626b' : '#40b2ef'}
+                              fill={
+                                dailyMetric === 'count'
+                                  ? '#2dd4bf'
+                                  : payload.net >= 0
+                                    ? '#ff626b'
+                                    : '#40b2ef'
+                              }
                             />
                           );
                         }}
@@ -653,7 +717,11 @@ export default function Home() {
                           return (
                             <Bar
                               key={s.code}
-                              dataKey={s.code}
+                              dataKey={
+                                dailyMetric === 'pnl'
+                                  ? s.code
+                                  : dailyCountKey(s.code)
+                              }
                               name={s.name}
                               stackId="symbols"
                               isAnimationActive={false}
@@ -662,16 +730,23 @@ export default function Home() {
                                   props as RectangleProps & {
                                     payload: Record<string, number>;
                                   };
-                                const value = payload[s.code] ?? 0;
+                                const value =
+                                  payload[
+                                    dailyMetric === 'pnl'
+                                      ? s.code
+                                      : dailyCountKey(s.code)
+                                  ] ?? 0;
                                 return (
                                   <Rectangle
                                     {...rect}
                                     fill={
-                                      value > 0
-                                        ? gainColors[colorIndex]
-                                        : value < 0
-                                          ? lossColors[colorIndex]
-                                          : '#688091'
+                                      dailyMetric === 'count'
+                                        ? countColors[colorIndex]
+                                        : value > 0
+                                          ? gainColors[colorIndex]
+                                          : value < 0
+                                            ? lossColors[colorIndex]
+                                            : '#688091'
                                     }
                                   />
                                 );
@@ -693,8 +768,19 @@ export default function Home() {
                           symbols.indexOf(s) % gainColors.length;
                         return (
                           <span key={s.code}>
-                            <i style={{ background: gainColors[colorIndex] }} />
-                            <i style={{ background: lossColors[colorIndex] }} />
+                            <i
+                              style={{
+                                background:
+                                  dailyMetric === 'pnl'
+                                    ? gainColors[colorIndex]
+                                    : countColors[colorIndex],
+                              }}
+                            />
+                            {dailyMetric === 'pnl' && (
+                              <i
+                                style={{ background: lossColors[colorIndex] }}
+                              />
+                            )}
                             {s.code} {s.name}
                           </span>
                         );
@@ -702,8 +788,12 @@ export default function Home() {
                   </div>
                   <p className="chart-note">
                     {t(
-                      '銘柄ごとに濃淡ペアを割り当て、利益は赤系、損失は青系で積み上げ表示。',
-                      'Each symbol has a paired shade: red for profit and blue for loss.',
+                      dailyMetric === 'pnl'
+                        ? '銘柄ごとに濃淡ペアを割り当て、利益は赤系、損失は青系で積み上げ表示。'
+                        : '銘柄ごとに色を割り当て、日別の取引回数を積み上げ表示。',
+                      dailyMetric === 'pnl'
+                        ? 'Each symbol has a paired shade: red for profit and blue for loss.'
+                        : 'Each symbol has its own color in the stacked daily trade count.',
                     )}
                   </p>
                 </>
