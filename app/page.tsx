@@ -70,6 +70,24 @@ const ratio = (n: number | null) =>
 const tone = (n: number) => (n > 0 ? 'positive' : n < 0 ? 'negative' : '');
 type Dataset = ReturnType<typeof parseTrades>;
 
+function japanDate(date = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Tokyo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+  const value = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value ?? '';
+  return `${value('year')}-${value('month')}-${value('day')}`;
+}
+
+function weekStart(date: string) {
+  const value = new Date(`${date}T00:00:00+09:00`);
+  value.setUTCDate(value.getUTCDate() - ((value.getUTCDay() + 6) % 7));
+  return value.toISOString().slice(0, 10);
+}
+
 export default function Home() {
   const [data, setData] = useState<Dataset | null>(null),
     [fileName, setFileName] = useState(''),
@@ -81,6 +99,7 @@ export default function Home() {
     [side, setSide] = useState('all'),
     [chartMode, setChartMode] = useState('net'),
     [period, setPeriod] = useState('week'),
+    [range, setRange] = useState('all'),
     [language, setLanguage] = useState('ja');
   const en = language === 'en';
   const t = (ja: string, english: string) => (en ? english : ja);
@@ -90,6 +109,7 @@ export default function Home() {
     setFileName(name);
     setStart(parsed.trades[0].date);
     setEnd(parsed.trades.at(-1)!.date);
+    setRange('all');
     setSymbol('all');
     setSide('all');
     setError('');
@@ -162,6 +182,24 @@ export default function Home() {
       </SelectContent>
     </Select>
   );
+  const selectRange = (nextRange: 'all' | 'today' | 'week' | 'month') => {
+    if (!data) return;
+    const today = japanDate();
+    if (nextRange === 'all') {
+      setStart(data.trades[0].date);
+      setEnd(data.trades.at(-1)!.date);
+    } else if (nextRange === 'today') {
+      setStart(today);
+      setEnd(today);
+    } else if (nextRange === 'week') {
+      setStart(weekStart(today));
+      setEnd(today);
+    } else {
+      setStart(`${today.slice(0, 7)}-01`);
+      setEnd(today);
+    }
+    setRange(nextRange);
+  };
   const tooltipStyle = {
     background: '#143246',
     border: '1px solid #426176',
@@ -240,13 +278,38 @@ export default function Home() {
           </div>
         )}
         <section className="filters" aria-label={t('分析条件', 'Filters')}>
+          <div className="range-field">
+            <span>{t('レポート範囲', 'Report range')}</span>
+            <div className="range-options">
+              {[
+                ['all', t('全期間', 'All time')],
+                ['today', t('今日', 'Today')],
+                ['week', t('今週', 'This week')],
+                ['month', t('今月', 'This month')],
+              ].map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  className={range === value ? 'active' : ''}
+                  onClick={() =>
+                    selectRange(value as 'all' | 'today' | 'week' | 'month')
+                  }
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
           <label>
             {t('開始日', 'From')}
             <input
               aria-label="開始日 / From"
               type="date"
               value={start}
-              onChange={(e) => setStart(e.target.value)}
+              onChange={(e) => {
+                setStart(e.target.value);
+                setRange('custom');
+              }}
             />
           </label>
           <span className="date-dash">—</span>
@@ -256,7 +319,10 @@ export default function Home() {
               aria-label="終了日 / To"
               type="date"
               value={end}
-              onChange={(e) => setEnd(e.target.value)}
+              onChange={(e) => {
+                setEnd(e.target.value);
+                setRange('custom');
+              }}
             />
           </label>
           <div className="filter-field">
@@ -290,15 +356,12 @@ export default function Home() {
           <button
             className="reset"
             onClick={() => {
-              if (data) {
-                setStart(data.trades[0].date);
-                setEnd(data.trades.at(-1)!.date);
-              }
+              selectRange('all');
               setSymbol('all');
               setSide('all');
             }}
           >
-            {t('全期間', 'All time')}
+            {t('条件をリセット', 'Reset filters')}
           </button>
         </section>
         {start > end && end && (
@@ -384,7 +447,12 @@ export default function Home() {
                   <TrendingUp className="accent" size={23} />
                 </div>
                 <div className="chart">
-                  <ResponsiveContainer width="100%" height="100%" initialDimension={{width:320,height:260}} minWidth={0}>
+                  <ResponsiveContainer
+                    width="100%"
+                    height="100%"
+                    initialDimension={{ width: 320, height: 260 }}
+                    minWidth={0}
+                  >
                     <AreaChart
                       data={chartData}
                       margin={{ top: 15, right: 15, bottom: 5, left: 0 }}
@@ -502,7 +570,12 @@ export default function Home() {
                 </Tabs>
               </div>
               <div className="chart daily-chart">
-                <ResponsiveContainer width="100%" height="100%" initialDimension={{width:320,height:290}} minWidth={0}>
+                <ResponsiveContainer
+                  width="100%"
+                  height="100%"
+                  initialDimension={{ width: 320, height: 290 }}
+                  minWidth={0}
+                >
                   <BarChart
                     data={chartData}
                     stackOffset="sign"
