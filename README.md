@@ -11,6 +11,10 @@ npm install
 npm run dev -- --host 127.0.0.1 --port 5173
 ```
 
+## GitHub Pages
+
+`main` ブランチへの push で GitHub Pages 用の静的サイトを自動デプロイします。GitHub のリポジトリ設定で、Pages の公開元を **GitHub Actions** に設定してください。
+
 表示されたURLを開き、「CSVを読み込む」から楽天証券の取引履歴CSV（`tradehistory(JP)_*.csv`）またはSBI証券の取引履歴CSV（`SaveFile_*.csv`）を選択してください。CSVをブラウザ内でShift-JISまたはUTF-8として読み込みます。取引データのサーバー送信・保存はありません。再読み込み後はCSVを再選択してください。元CSVはバックアップとして保持してください。
 
 ## 機能
