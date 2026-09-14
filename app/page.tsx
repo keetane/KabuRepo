@@ -44,6 +44,7 @@ import {
   stats,
   groupTrades,
   weekOf,
+  type Trade,
 } from '@/lib/analysis';
 
 const gainColors = [
@@ -131,6 +132,8 @@ export default function Home() {
     [dailyMetric, setDailyMetric] = useState('pnl'),
     [period, setPeriod] = useState('week'),
     [range, setRange] = useState('all'),
+    [verifiedDate, setVerifiedDate] = useState(''),
+    [verifiedPnl, setVerifiedPnl] = useState(''),
     [language, setLanguage] = useState('ja');
   const en = language === 'en';
   const t = (ja: string, english: string) => (en ? english : ja);
@@ -144,6 +147,8 @@ export default function Home() {
     setSymbol('all');
     setSide('all');
     setSymbolPnlSide('all');
+    setVerifiedDate(japanDate());
+    setVerifiedPnl('');
     setError('');
   };
   useEffect(() => {
@@ -159,7 +164,7 @@ export default function Home() {
         : [],
     [data],
   );
-  const rows = useMemo(
+  const sourceRows = useMemo(
     () =>
       data?.trades.filter(
         (x) =>
@@ -170,6 +175,41 @@ export default function Home() {
       ) ?? [],
     [data, start, end, symbol, side],
   );
+  const rows = useMemo(() => {
+    const total = Number(verifiedPnl);
+    if (
+      !verifiedDate ||
+      !verifiedPnl ||
+      !Number.isFinite(total) ||
+      symbol !== 'all' ||
+      side !== 'all' ||
+      verifiedDate < start ||
+      verifiedDate > end
+    )
+      return sourceRows;
+    const calculated = sourceRows
+      .filter((trade) => trade.date === verifiedDate)
+      .reduce((sum, trade) => sum + trade.net, 0);
+    const adjustment = Math.round((total - calculated) * 100) / 100;
+    if (!adjustment) return sourceRows;
+    const correction: Trade = {
+      id: `verified:${verifiedDate}`,
+      sourceRow: 0,
+      date: verifiedDate,
+      entryDate: '',
+      code: '調整',
+      name: '証券会社確定損益補正',
+      side: 'long',
+      quantity: 0,
+      entry: 0,
+      exit: 0,
+      gross: adjustment,
+      net: adjustment,
+      costs: 0,
+      basis: 0,
+    };
+    return [...sourceRows, correction];
+  }, [sourceRows, verifiedDate, verifiedPnl, symbol, side, start, end]);
   const symbolPnlRows = useMemo(
     () =>
       data?.trades.filter(
@@ -382,6 +422,25 @@ export default function Home() {
               }}
             />
           </label>
+          <div className="filter-field">
+            <span>{t('証券会社の確定損益', 'Broker confirmed P&L')}</span>
+            <div className="flex gap-2">
+              <input
+                aria-label={t('確定損益の日付', 'Confirmed P&L date')}
+                type="date"
+                value={verifiedDate}
+                onChange={(e) => setVerifiedDate(e.target.value)}
+              />
+              <input
+                aria-label={t('証券会社の確定損益', 'Broker confirmed P&L')}
+                type="number"
+                inputMode="decimal"
+                placeholder={t('確定損益（円）', 'P&L (JPY)')}
+                value={verifiedPnl}
+                onChange={(e) => setVerifiedPnl(e.target.value)}
+              />
+            </div>
+          </div>
           <div className="filter-field">
             <span>{t('銘柄', 'Symbol')}</span>
             {choose(
@@ -1017,7 +1076,7 @@ export default function Home() {
                 <TableBody>
                   {[...rows].reverse().map((r) => (
                     <TableRow key={r.id}>
-                      <TableCell>{r.sourceRow}</TableCell>
+                      <TableCell>{r.sourceRow || '—'}</TableCell>
                       <TableCell>{r.date}</TableCell>
                       <TableCell>
                         {r.code} {r.name}
@@ -1056,8 +1115,8 @@ export default function Home() {
                   'SBI credit-close sells are long and credit-close buys are short. Only rows with recorded realized P&L are counted. SBI CSVs do not contain entry prices, so return and entry price are unavailable.',
                 )
               : t(
-                  '楽天の信用返済は各CSV明細を1件として集計します。受渡・建値が未確定の当日信用返済は、CSV内の信用新規を先入先出で対応付けた暫定損益として表示します。現物の売付は、同一銘柄の先行する買付（現引を含む）を先入先出で対応付け、売却受渡額との差額を損益にします。',
-                  'Rakuten credit closes count as one fill each. Same-day credit closes with pending settlement and entry details are shown as provisional P&L, FIFO-matched to credit opens in the CSV. Cash sells are FIFO-matched to earlier cash buys, including cash conversions, by symbol.',
+                  '楽天の信用返済は各CSV明細を1件として集計します。受渡・建値が未確定の当日信用返済は推測して集計しません。証券会社アプリの合計が分かる場合は「証券会社の確定損益」に日付と金額を入力すると、差額を「証券会社確定損益補正」として明示して日次・期間合計へ反映します。現物の売付は、同一銘柄の先行する買付（現引を含む）を先入先出で対応付けます。',
+                  'Rakuten credit closes with pending settlement or entry details are not estimated. When a broker-confirmed daily total is available, enter its date and amount under Broker confirmed P&L; the visible reconciliation row updates daily and period totals by the difference. Cash sells are FIFO-matched to earlier cash buys, including cash conversions.',
                 )}
           </p>
           <p>
@@ -1068,7 +1127,7 @@ export default function Home() {
           </p>
           <p>
             {data &&
-              `${data.sourceRows} ${t('元明細', 'source rows')} / ${data.trades.length} ${t('決済明細', 'closed fills')}${data.source === 'sbi' ? ` / ${data.unavailableSettlements} ${t('件は決済損益未記録のため除外', 'fills excluded because P&L is unavailable')}` : ` / ${data.zeroSettlements} ${t('件は建値決済・費用ゼロを確認して0円として集計', 'flat fills verified with zero costs')}${data.provisionalSettlements ? ` / ${data.provisionalSettlements}${t('件は当日暫定損益', ' provisional same-day credit closes')}` : ''}${data.unavailableSettlements ? ` / ${data.unavailableSettlements}${t('件は受渡・建値未確定のため除外', ' credit closes excluded because settlement or entry details are pending')}` : ''}${data.unmatchedCashSellQuantity ? ` / ${data.unmatchedCashSellQuantity}${t('株は対応する現物買付がないため除外', ' shares excluded because no earlier cash buy could be matched')}` : ''}${data.unsupportedTransactions ? ` / ${data.unsupportedTransactions}${t('件は未対応区分のため除外', ' unsupported rows excluded')}` : ''}`}`}
+              `${data.sourceRows} ${t('元明細', 'source rows')} / ${data.trades.length} ${t('決済明細', 'closed fills')}${data.source === 'sbi' ? ` / ${data.unavailableSettlements} ${t('件は決済損益未記録のため除外', 'fills excluded because P&L is unavailable')}` : ` / ${data.zeroSettlements} ${t('件は建値決済・費用ゼロを確認して0円として集計', 'flat fills verified with zero costs')}${data.unavailableSettlements ? ` / ${data.unavailableSettlements}${t('件は受渡・建値未確定のため除外', ' credit closes excluded because settlement or entry details are pending')}` : ''}${data.unmatchedCashSellQuantity ? ` / ${data.unmatchedCashSellQuantity}${t('株は対応する現物買付がないため除外', ' shares excluded because no earlier cash buy could be matched')}` : ''}${data.unsupportedTransactions ? ` / ${data.unsupportedTransactions}${t('件は未対応区分のため除外', ' unsupported rows excluded')}` : ''}`}`}
           </p>
           <p>
             {t(

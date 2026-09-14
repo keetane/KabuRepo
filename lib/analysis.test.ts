@@ -48,18 +48,13 @@ void test('Rakuten cash buys and cash conversions realize FIFO P&L on later cash
   assert.equal(data.unsupportedTransactions, 1);
   assert.equal(data.unmatchedCashSellQuantity, 0);
 });
-void test('Rakuten pending same-day credit closes use FIFO-matched opens as provisional P&L', () => {
+void test('Rakuten pending same-day credit closes are excluded rather than estimated', () => {
   const csv = [
     '約定日,銘柄コード,銘柄名,取引区分,売買区分,数量［株］,単価［円］,受渡金額［円］,建単価［円］,建約定日',
     '2026/9/14,1111,銘柄A,信用新規,買建,100,100,-,-,-',
     '2026/9/14,1111,銘柄A,信用返済,売埋,100,110,-,-,-',
   ].join('\n');
-  const data = parseTrades(csv);
-  assert.equal(data.trades.length, 1);
-  assert.equal(data.trades[0].net, 1000);
-  assert.equal(data.trades[0].provisional, true);
-  assert.equal(data.provisionalSettlements, 1);
-  assert.equal(data.unavailableSettlements, 0);
+  assert.throws(() => parseTrades(csv), /集計可能/);
 });
 void test('CSV handles quoted commas, escaped quotes and embedded newlines', () => {
   assert.deepEqual(parseCSV('a,b\r\n"one,two","a""b"\r\n"new\nline",0'), [
