@@ -88,6 +88,7 @@ function parseTradeHistory(rows: string[][]): ParsedTrades {
       'tradehistory CSVの列が不足しています: ' + missing.join('、'),
     );
   let zeroSettlements = 0;
+  let unavailableSettlements = 0;
   const trades: Trade[] = [];
   rows.forEach((row, i) => {
     if (row.length !== headers.length)
@@ -109,17 +110,26 @@ function parseTradeHistory(rows: string[][]): ParsedTrades {
       !side ||
       !quantity ||
       quantity < 0 ||
-      !entry ||
-      entry < 0 ||
       !exit ||
       exit < 0
     )
       throw new Error(`${i + 2}行目の売買区分・数量・価格を確認してください。`);
+    let net = number(r['受渡金額［円］']);
+    if (
+      entry === null ||
+      entry <= 0 ||
+      r['建約定日'] === '-'
+    ) {
+      if (net === null) {
+        unavailableSettlements++;
+        return;
+      }
+      throw new Error(`${i + 2}行目の建約定日・建単価を確認してください。`);
+    }
     const gross =
       Math.round(
         (side === 'long' ? exit - entry : entry - exit) * quantity * 100,
       ) / 100;
-    let net = number(r['受渡金額［円］']);
     if (net === null) {
       const feeKeys = [
         '諸費用［円］',
@@ -154,7 +164,7 @@ function parseTradeHistory(rows: string[][]): ParsedTrades {
     trades: trades.sort((a, b) => a.date.localeCompare(b.date) || a.id - b.id),
     sourceRows: rows.length,
     zeroSettlements,
-    unavailableSettlements: 0,
+    unavailableSettlements,
     hasEntryBasis: true,
     source: 'tradehistory',
   };
