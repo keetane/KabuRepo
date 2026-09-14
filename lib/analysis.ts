@@ -13,7 +13,6 @@ export type Trade = {
   net: number;
   costs: number;
   basis: number;
-  provisional?: boolean;
 };
 
 type ParsedTrades = {
@@ -21,7 +20,6 @@ type ParsedTrades = {
   sourceRows: number;
   zeroSettlements: number;
   unavailableSettlements: number;
-  provisionalSettlements: number;
   unmatchedCashSellQuantity: number;
   unsupportedTransactions: number;
   hasEntryBasis: boolean;
@@ -34,12 +32,6 @@ type CashLot = {
   quantity: number;
   entry: number;
   cost: number;
-};
-type CreditLot = {
-  date: string;
-  quantity: number;
-  entry: number;
-  side: 'long' | 'short';
 };
 export function parseCSV(text: string): string[][] {
   const rows: string[][] = [];
@@ -101,12 +93,10 @@ function parseTradeHistory(rows: string[][]): ParsedTrades {
     );
   let zeroSettlements = 0;
   let unavailableSettlements = 0;
-  let provisionalSettlements = 0;
   let unmatchedCashSellQuantity = 0;
   let unsupportedTransactions = 0;
   const trades: Trade[] = [];
   const cashLots = new Map<string, CashLot[]>();
-  const creditLots = new Map<string, CreditLot[]>();
   const records = rows.map((row, i) => {
     if (row.length !== headers.length)
       throw new Error(`${i + 2}行目の列数が一致しません。`);
@@ -141,25 +131,6 @@ function parseTradeHistory(rows: string[][]): ParsedTrades {
           cost,
         },
       ]);
-    };
-    const takeCreditLots = (side: 'long' | 'short') => {
-      let remaining = quantity!;
-      const matches: CreditLot[] = [];
-      const lots = creditLots.get(r['銘柄コード']) ?? [];
-      for (let index = 0; remaining > 0 && index < lots.length; ) {
-        const lot = lots[index];
-        if (lot.side !== side) {
-          index++;
-          continue;
-        }
-        const matched = Math.min(remaining, lot.quantity);
-        matches.push({ ...lot, quantity: matched });
-        lot.quantity -= matched;
-        remaining -= matched;
-        if (lot.quantity === 0) lots.splice(index, 1);
-        else index++;
-      }
-      return { matches, remaining };
     };
     if (transaction === '現物' && r['売買区分'] === '買付') {
       if (settlement === null)
@@ -209,21 +180,7 @@ function parseTradeHistory(rows: string[][]): ParsedTrades {
       unmatchedCashSellQuantity += remaining;
       return;
     }
-    if (transaction === '信用新規') {
-      const side =
-        r['売買区分'] === '買建'
-          ? 'long'
-          : r['売買区分'] === '売建'
-            ? 'short'
-            : null;
-      if (!side || !quantity || quantity < 0 || exit === null || exit < 0)
-        throw new Error(`${sourceRow}行目の売買区分・数量・価格を確認してください。`);
-      creditLots.set(r['銘柄コード'], [
-        ...(creditLots.get(r['銘柄コード']) ?? []),
-        { date: tradeDate, quantity, entry: exit, side },
-      ]);
-      return;
-    }
+    if (transaction === '信用新規') return;
     if (transaction !== '信用返済') {
       unsupportedTransactions++;
       return;
@@ -237,39 +194,9 @@ function parseTradeHistory(rows: string[][]): ParsedTrades {
     const entry = number(r['建単価［円］']);
     if (!side || !quantity || quantity < 0 || exit === null || exit < 0)
       throw new Error(`${sourceRow}行目の売買区分・数量・価格を確認してください。`);
-    const matchedLots = takeCreditLots(side);
     if (entry === null || r['建約定日'] === '-') {
       if (settlement === null) {
-        if (matchedLots.remaining) {
-          unavailableSettlements++;
-          return;
-        }
-        provisionalSettlements++;
-        matchedLots.matches.forEach((lot, allocation) => {
-          const gross =
-            Math.round(
-              (side === 'long' ? exit - lot.entry : lot.entry - exit) *
-                lot.quantity *
-                100,
-            ) / 100;
-          trades.push({
-            id: `${sourceRow}:credit-provisional:${allocation}`,
-            sourceRow,
-            date: tradeDate,
-            entryDate: lot.date,
-            code: r['銘柄コード'],
-            name: r['銘柄名'],
-            side,
-            quantity: lot.quantity,
-            entry: lot.entry,
-            exit,
-            gross,
-            net: gross,
-            costs: 0,
-            basis: lot.entry * lot.quantity,
-            provisional: true,
-          });
-        });
+        unavailableSettlements++;
         return;
       }
       throw new Error(`${sourceRow}行目の建単価・建約定日を確認してください。`);
@@ -315,7 +242,6 @@ function parseTradeHistory(rows: string[][]): ParsedTrades {
     sourceRows: rows.length,
     zeroSettlements,
     unavailableSettlements,
-    provisionalSettlements,
     unmatchedCashSellQuantity,
     unsupportedTransactions,
     hasEntryBasis: true,
@@ -390,7 +316,6 @@ function parseSbi(rows: string[][], headerIndex: number): ParsedTrades {
     sourceRows: dataRows.length,
     zeroSettlements: 0,
     unavailableSettlements,
-    provisionalSettlements: 0,
     unmatchedCashSellQuantity: 0,
     unsupportedTransactions: 0,
     hasEntryBasis: false,
