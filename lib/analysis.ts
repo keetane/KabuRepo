@@ -98,7 +98,6 @@ function parseTradeHistory(rows: string[][]): ParsedTrades {
   let unavailableSettlements = 0;
   const trades: Trade[] = [];
   const estimatedTrades: Trade[] = [];
-  const creditLots = new Map<string, CreditLot[]>();
   const records = rows.map((row, i) => {
     if (row.length !== headers.length)
       throw new Error(`${i + 2}行目の列数が一致しません。`);
@@ -107,6 +106,14 @@ function parseTradeHistory(rows: string[][]): ParsedTrades {
       sourceRow: i + 2,
     };
   });
+  const latestTradeDate = records.reduce(
+    (latest, { r }) => {
+      const tradeDate = date(r['約定日']);
+      return tradeDate > latest ? tradeDate : latest;
+    },
+    '',
+  );
+  const creditLots = new Map<string, CreditLot[]>();
   records
     .sort(
       (a, b) =>
@@ -126,10 +133,11 @@ function parseTradeHistory(rows: string[][]): ParsedTrades {
             : null;
       if (!side || !quantity || quantity < 0 || exit === null || exit < 0)
         throw new Error(`${sourceRow}行目の売買区分・数量・価格を確認してください。`);
-      creditLots.set(r['銘柄コード'], [
-        ...(creditLots.get(r['銘柄コード']) ?? []),
-        { date: tradeDate, quantity, entry: exit, side },
-      ]);
+      if (tradeDate === latestTradeDate)
+        creditLots.set(r['銘柄コード'], [
+          ...(creditLots.get(r['銘柄コード']) ?? []),
+          { date: tradeDate, quantity, entry: exit, side },
+        ]);
       return;
     }
     if (r['取引区分'] !== '信用返済')
@@ -173,7 +181,7 @@ function parseTradeHistory(rows: string[][]): ParsedTrades {
     ) {
       if (net === null) {
         unavailableSettlements++;
-        if (!remaining) {
+        if (tradeDate === latestTradeDate && !remaining) {
           matchedLots.forEach((lot, allocation) => {
             const gross =
               Math.round(
