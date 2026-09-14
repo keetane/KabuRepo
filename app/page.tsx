@@ -1068,7 +1068,7 @@ export default function Home() {
           </p>
           <p>
             {data &&
-              `${data.sourceRows} ${t('元明細', 'source rows')} / ${data.trades.length} ${t('決済明細', 'closed fills')}${data.source === 'sbi' ? ` / ${data.unavailableSettlements} ${t('件は決済損益未記録のため除外', 'fills excluded because P&L is unavailable')}` : ` / ${data.zeroSettlements} ${t('件は建値決済・費用ゼロを確認して0円として集計', 'flat fills verified with zero costs')}`}`}
+              `${data.sourceRows} ${t('元明細', 'source rows')} / ${data.trades.length} ${t('決済明細', 'closed fills')}${data.source === 'sbi' ? ` / ${data.unavailableSettlements} ${t('件は決済損益未記録のため除外', 'fills excluded because P&L is unavailable')}` : ` / ${data.zeroSettlements} ${t('件は建値決済・費用ゼロを確認して0円として集計', 'flat fills verified with zero costs')}${data.unavailableSettlements ? ` / ${data.unavailableSettlements}${t('件は未確定の信用返済として除外', ' pending credit-close rows excluded')}` : ''}`}`}
           </p>
           <p>
             {t(
