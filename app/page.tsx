@@ -1017,7 +1017,7 @@ export default function Home() {
                 <TableBody>
                   {[...rows].reverse().map((r) => (
                     <TableRow key={r.id}>
-                      <TableCell>{r.sourceRow}</TableCell>
+                      <TableCell>{r.id}</TableCell>
                       <TableCell>{r.date}</TableCell>
                       <TableCell>
                         {r.code} {r.name}
@@ -1056,8 +1056,8 @@ export default function Home() {
                   'SBI credit-close sells are long and credit-close buys are short. Only rows with recorded realized P&L are counted. SBI CSVs do not contain entry prices, so return and entry price are unavailable.',
                 )
               : t(
-                  '楽天の信用返済は各CSV明細を1件として集計します。現物の売付は、同一銘柄の先行する買付（現引を含む）を先入先出で対応付け、売却受渡額との差額を損益にします。現物の買付だけでは損益は発生しません。勝率は利益明細数 ÷ 全決済明細数（引き分けを含む）です。',
-                  'Rakuten credit closes count as one fill each. Cash sells are matched to earlier cash buys, including cash conversions, by symbol using FIFO; P&L is the difference between sale proceeds and matched purchase cost. Cash buys alone do not realize P&L. Win rate includes flat fills in the denominator.',
+                  '信用返済の各CSV明細を1件として集計。勝率は利益明細数 ÷ 全決済明細数（引き分けを含む）。同一注文の分割約定も個別に数えます。利益率は純損益合計 ÷ 決済対象の建約定金額合計で、口座資産や証拠金に対する収益率ではありません。',
+                  'Each credit-close CSV row is one fill. Win rate includes flat fills in the denominator. Split fills count separately. Return is total net P&L divided by closed entry notional, not account equity or margin.',
                 )}
           </p>
           <p>
@@ -1068,7 +1068,7 @@ export default function Home() {
           </p>
           <p>
             {data &&
-              `${data.sourceRows} ${t('元明細', 'source rows')} / ${data.trades.length} ${t('決済明細', 'closed fills')}${data.source === 'sbi' ? ` / ${data.unavailableSettlements} ${t('件は決済損益未記録のため除外', 'fills excluded because P&L is unavailable')}` : ` / ${data.zeroSettlements} ${t('件は建値決済・費用ゼロを確認して0円として集計', 'flat fills verified with zero costs')}${data.unavailableSettlements ? ` / ${data.unavailableSettlements}${t('件は受渡・建値未確定のため除外', ' credit closes excluded because settlement or entry details are pending')}` : ''}${data.unmatchedCashSellQuantity ? ` / ${data.unmatchedCashSellQuantity}${t('株は対応する現物買付がないため除外', ' shares excluded because no earlier cash buy could be matched')}` : ''}${data.unsupportedTransactions ? ` / ${data.unsupportedTransactions}${t('件は未対応区分のため除外', ' unsupported rows excluded')}` : ''}`}`}
+              `${data.sourceRows} ${t('元明細', 'source rows')} / ${data.trades.length} ${t('決済明細', 'closed fills')}${data.source === 'sbi' ? ` / ${data.unavailableSettlements} ${t('件は決済損益未記録のため除外', 'fills excluded because P&L is unavailable')}` : ` / ${data.zeroSettlements} ${t('件は建値決済・費用ゼロを確認して0円として集計', 'flat fills verified with zero costs')}`}`}
           </p>
           <p>
             {t(

@@ -11,8 +11,7 @@ import {
   type Trade,
 } from './analysis.ts';
 const base: Trade = {
-  id: '1',
-  sourceRow: 1,
+  id: 1,
   date: '2026-08-31',
   entryDate: '2026-08-31',
   code: '1',
@@ -26,28 +25,6 @@ const base: Trade = {
   costs: 0,
   basis: 10000,
 };
-void test('Rakuten cash buys and cash conversions realize FIFO P&L on later cash sells', () => {
-  const csv = [
-    '約定日,銘柄コード,銘柄名,取引区分,売買区分,数量［株］,単価［円］,受渡金額［円］,建単価［円］,建約定日,諸費用［円］,手数料［円］,税金等［円］,建手数料［円］,建手数料消費税［円］',
-    '2026/1/5,1111,銘柄A,現物,買付,100,100,10000,-,-,0,0,0,0,0',
-    '2026/1/6,1111,銘柄A,現物,買付,50,120,6000,-,-,0,0,0,0,0',
-    '2026/1/7,1111,銘柄A,現物,売付,120,130,15600,-,-,0,0,0,0,0',
-    '2026/1/8,2222,銘柄B,現引,,100,90,9000,90,2026/1/2,0,0,0,0,0',
-    '2026/1/9,2222,銘柄B,現物,売付,100,95,9500,-,-,0,0,0,0,0',
-    '2026/1/10,3333,銘柄C,信用返済,売埋,100,110,1000,100,2026/1/1,0,0,0,0,0',
-    '2026/1/11,3333,銘柄C,現渡,,100,100,10000,-,-,0,0,0,0,0',
-  ].join('\n');
-  const data = parseTrades(csv);
-  assert.equal(data.trades.length, 4);
-  assert.equal(stats(data.trades).net, 4700);
-  assert.deepEqual(
-    data.trades.filter((trade) => trade.code === '1111').map((trade) => trade.net),
-    [3000, 200],
-  );
-  assert.equal(data.trades.find((trade) => trade.code === '2222')?.net, 500);
-  assert.equal(data.unsupportedTransactions, 1);
-  assert.equal(data.unmatchedCashSellQuantity, 0);
-});
 void test('CSV handles quoted commas, escaped quotes and embedded newlines', () => {
   assert.deepEqual(parseCSV('a,b\r\n"one,two","a""b"\r\n"new\nline",0'), [
     ['a', 'b'],
