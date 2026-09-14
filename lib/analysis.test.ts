@@ -33,24 +33,20 @@ void test('CSV handles quoted commas, escaped quotes and embedded newlines', () 
   ]);
   assert.throws(() => parseCSV('"open'), /引用符/);
 });
-void test('only latest-day Rakuten pending credit closes receive a same-day simple estimate', () => {
+void test('Rakuten pending credit closes are excluded without rejecting settled rows', () => {
   const header =
     '約定日,銘柄コード,銘柄名,取引区分,売買区分,数量［株］,単価［円］,建単価［円］,建約定日,受渡金額［円］,諸費用［円］,手数料［円］,税金等［円］,建手数料［円］,建手数料消費税［円］';
   const settled =
     '2026/9/12,2222,銘柄B,信用返済,売埋,100,110,100,2026/9/1,1000,0,0,0,0,0';
-  const priorOpening =
-    '2026/9/13,1111,銘柄A,信用新規,買建,100,100,-,-,-,0,0,0,0,0';
   const opening =
-    '2026/9/14,1111,銘柄A,信用新規,買建,100,105,-,-,-,0,0,0,0,0';
+    '2026/9/13,1111,銘柄A,信用新規,買建,100,100,-,-,-,0,0,0,0,0';
   const pending =
     '2026/9/14,1111,銘柄A,信用返済,売埋,100,110,0,-,-,0,0,0,0,0';
-  const data = parseTrades(
-    [header, settled, priorOpening, opening, pending].join('\n'),
-  );
+  const data = parseTrades([header, settled, opening, pending].join('\n'));
   assert.equal(data.trades.length, 1);
   assert.equal(data.unavailableSettlements, 1);
   assert.equal(stats(data.trades).net, 1000);
-  assert.equal(stats(data.estimatedTrades).net, 500);
+  assert.equal(stats(data.estimatedTrades).net, 1000);
 });
 void test('win rates count flat fills; returns use entry notional, PF and payoff differ', () => {
   const s = stats([base, { ...base, net: -50 }, { ...base, net: 0 }]);
