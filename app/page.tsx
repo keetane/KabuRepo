@@ -170,6 +170,17 @@ export default function Home() {
       ) ?? [],
     [data, start, end, symbol, side],
   );
+  const estimatedRows = useMemo(
+    () =>
+      data?.estimatedTrades.filter(
+        (x) =>
+          (!start || x.date >= start) &&
+          (!end || x.date <= end) &&
+          (symbol === 'all' || x.code === symbol) &&
+          (side === 'all' || x.side === side),
+      ) ?? [],
+    [data, start, end, symbol, side],
+  );
   const symbolPnlRows = useMemo(
     () =>
       data?.trades.filter(
@@ -182,6 +193,7 @@ export default function Home() {
     [data, start, end, symbol, symbolPnlSide],
   );
   const summary = stats(rows),
+    estimated = stats(estimatedRows),
     long = stats(rows.filter((x) => x.side === 'long')),
     short = stats(rows.filter((x) => x.side === 'short'));
   const daily = groupTrades(rows, (x) => x.date);
@@ -458,6 +470,19 @@ export default function Home() {
               )}
             </p>
           </section>
+          {estimated.count > 0 && (
+            <section className="metric estimate-metric">
+              <span>{t('当日概算損益', 'Same-day estimated P&L')}</span>
+              <strong className={tone(estimated.net)}>
+                {estimated.net > 0 ? '+' : ''}
+                {money(estimated.net)}
+                <small> JPY</small>
+              </strong>
+              <p>
+                {estimated.count} {t('件・FIFOによる概算（確定損益には未反映）', ' fills, FIFO estimate (not included in realized P&L)')}
+              </p>
+            </section>
+          )}
           <section className="metric">
             <span>{t('勝率', 'Win rate')}</span>
             <strong>{percent(summary.winRate)}</strong>
