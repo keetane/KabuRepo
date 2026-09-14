@@ -472,14 +472,14 @@ export default function Home() {
           </section>
           {estimated.count > 0 && (
             <section className="metric estimate-metric">
-              <span>{t('最新日簡易損益', 'Latest-day simple P&L')}</span>
+              <span>{t('当日概算損益', 'Same-day estimated P&L')}</span>
               <strong className={tone(estimated.net)}>
                 {estimated.net > 0 ? '+' : ''}
                 {money(estimated.net)}
                 <small> JPY</small>
               </strong>
               <p>
-                {estimated.count} {t('件・同日内の数量・単価による概算（確定損益には未反映）', ' fills, estimated from same-day quantities and prices (not included in realized P&L)')}
+                {estimated.count} {t('件・FIFOによる概算（確定損益には未反映）', ' fills, FIFO estimate (not included in realized P&L)')}
               </p>
             </section>
           )}
